@@ -81,7 +81,6 @@ export default function ChatPage() {
             timestamp: new Date().toISOString(),
         };
         setMessages(prev => [...prev, optimisticMessage]);
-
         setDraft('');
     };
 
