@@ -51,12 +51,26 @@ export interface Enrollment {
     course: Course;
 }
 
-export interface ChatMessage {
+export interface ChatMessageResponse {
     id: number;
-    sender: UserSnippet;
+    senderId: number;
+    senderFirstName: string;
+    senderLastName: string;
     content: string;
     timestamp: string;
 }
+
+export interface ChatMessage {
+    id: number;
+    sender: {
+        id: number;
+        firstName: string;
+        lastName: string;
+    };
+    content: string;
+    timestamp: string;
+}
+
 
 export interface ConversationSnippet {
     conversationId: number;

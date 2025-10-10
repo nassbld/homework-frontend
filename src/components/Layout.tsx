@@ -1,12 +1,15 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 
 export default function Layout() {
+    const location = useLocation();
+    const isChatPage = location.pathname === '/chat';
+
     return (
-        <div>
+        <div className={isChatPage ? "flex flex-col h-screen" : ""}>
             <Navbar />
-            <main>
-                <Outlet /> {/* Les pages (HomePage, LoginPage, etc.) seront rendues ici */}
+            <main className={isChatPage ? "flex-1 overflow-hidden" : ""}>
+                <Outlet />
             </main>
         </div>
     );

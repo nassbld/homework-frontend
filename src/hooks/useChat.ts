@@ -2,9 +2,9 @@ import {useEffect, useRef, useState} from 'react';
 import { Client, type IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useAuth } from './useAuth';
-import type { ChatMessage } from '../types';
+import type { ChatMessageResponse } from '../types';
 
-type OnMessage = (msg: ChatMessage) => void;
+type OnMessage = (msg: ChatMessageResponse) => void;
 
 export function useChat(onMessage: OnMessage) {
     const { user } = useAuth();
@@ -12,44 +12,74 @@ export function useChat(onMessage: OnMessage) {
     const [isConnected, setIsConnected] = useState(false);
 
     useEffect(() => {
-        if (!user) return;
+        // ✅ Ne pas se connecter si pas d'utilisateur
+        if (!user) {
+            console.log('WebSocket: User not authenticated, skipping connection');
+            return;
+        }
 
-        const token = localStorage.getItem('token') ?? '';
-        const url = `http://localhost:8080/ws`;
+        const token = localStorage.getItem('token');
+        if (!token) {
+            console.log('WebSocket: No token found, skipping connection');
+            return;
+        }
 
-        const socketFactory = () => new SockJS(url);
+        const sockJsUrl = `http://localhost:8080/ws?token=${token}`;
+        const brokerURL = `ws://localhost:8080/ws`;
+
         const client = new Client({
-            webSocketFactory: socketFactory,
+            brokerURL: brokerURL,
+            webSocketFactory: () => new SockJS(sockJsUrl),
             connectHeaders: { Authorization: `Bearer ${token}` },
-            reconnectDelay: 5000,
+            reconnectDelay: 0,
             onConnect: () => {
-                console.log('STOMP connecté.');
+                console.log('✅ STOMP connecté.');
                 setIsConnected(true);
-                client.subscribe(`/user/${user.id}/queue/messages`, (frame: IMessage) => {
-                    if (!frame.body) return;
-                    const parsed = JSON.parse(frame.body) as ChatMessage;
-                    onMessage(parsed);
-                });
+                if (user?.id) {
+                    client.subscribe(`/user/queue/messages`, (frame: IMessage) => {
+                        if (!frame.body) return;
+                        const parsed = JSON.parse(frame.body) as ChatMessageResponse;
+                        onMessage(parsed);
+                    });
+                }
             },
             onDisconnect: () => {
-                console.log('STOMP déconnecté.');
+                console.log('❌ STOMP déconnecté.');
                 setIsConnected(false);
             },
-            onStompError: () => {},
-            onWebSocketError: () => {},
+            onStompError: (frame) => {
+                // ⚠️ NOUVEAU : Gérer les erreurs STOMP (JWT expiré, etc.)
+                console.error('❌ Erreur STOMP:', frame.headers['message']);
+
+                // Si JWT expiré, déconnecter proprement
+                if (frame.headers['message']?.includes('JWT') || frame.headers['message']?.includes('expired')) {
+                    console.warn('JWT expiré dans WebSocket, déconnexion...');
+                    client.deactivate();
+                    localStorage.removeItem('token');
+                    window.location.href = '/login?expired=true';
+                }
+            },
+            debug: (str) => {
+                console.log(new Date(), str);
+            }
         });
 
         client.activate();
         clientRef.current = client;
 
         return () => {
+            console.log('🔌 Nettoyage connexion WebSocket');
             client.deactivate();
             clientRef.current = null;
+            setIsConnected(false);
         };
     }, [user, onMessage]);
 
     const sendMessage = (recipientId: number, content: string) => {
-        if (!clientRef.current || !clientRef.current.active || !user) return;
+        if (!clientRef.current || !clientRef.current.active || !user) {
+            console.warn('Cannot send message: WebSocket not connected');
+            return;
+        }
         const payload = { recipientId, content };
         clientRef.current.publish({
             destination: '/app/chat',

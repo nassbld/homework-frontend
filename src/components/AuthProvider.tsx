@@ -41,8 +41,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
         const decodedToken: any = jwtDecode(token);
         const loggedInUser: User = {
-            id: decodedToken.sub,
-            email: decodedToken.email,
+            id: decodedToken.id,
+            email: decodedToken.sub,
             firstName: decodedToken.firstName,
             lastName: decodedToken.lastName,
             role: decodedToken.role,
@@ -50,6 +50,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         };
         setUser(loggedInUser);
     }, []);
+
 
     const logout = useCallback(() => {
         localStorage.removeItem('token');

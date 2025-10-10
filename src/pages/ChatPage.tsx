@@ -3,8 +3,8 @@ import { useLocation } from "react-router-dom";
 import { useAuth } from '../hooks/useAuth';
 import { useChat } from '../hooks/useChat';
 import { fetchConversations, fetchConversationMessages } from '../services/chatApi';
-import type { ConversationSnippet, ChatMessage } from '../types';
-import { FiSend } from 'react-icons/fi';
+import type { ConversationSnippet, ChatMessage, ChatMessageResponse } from '../types';
+import { FiSend, FiMessageCircle, FiArrowLeft } from 'react-icons/fi';
 
 export default function ChatPage() {
     const { user } = useAuth();
@@ -14,31 +14,50 @@ export default function ChatPage() {
     const [activeConv, setActiveConv] = useState<ConversationSnippet | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [draft, setDraft] = useState('');
+    const [showChat, setShowChat] = useState(false); // ⚠️ Pour mobile
 
-    const messagesEndRef = useRef<HTMLDivElement>(null); // Réf pour l'auto-scroll
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const activeConvRef = useRef<ConversationSnippet | null>(null);
 
-    // --- Logique de réception des messages en temps réel ---
-    const handleIncomingMessage = useCallback((newMessage: ChatMessage) => {
-        // On met à jour la liste des messages seulement si le message
-        // appartient à la conversation actuellement ouverte.
-        if (activeConv && newMessage.sender.id === activeConv.otherUserId) {
-            setMessages((prevMessages) => [...prevMessages, newMessage]);
+    useEffect(() => {
+        activeConvRef.current = activeConv;
+    }, [activeConv]);
+
+    const handleIncomingMessage = useCallback((newMessageDto: ChatMessageResponse) => {
+        const newMessage: ChatMessage = {
+            id: newMessageDto.id,
+            sender: {
+                id: newMessageDto.senderId,
+                firstName: newMessageDto.senderFirstName,
+                lastName: newMessageDto.senderLastName
+            },
+            content: newMessageDto.content,
+            timestamp: newMessageDto.timestamp
+        };
+
+        const currentConv = activeConvRef.current;
+
+        if (currentConv) {
+            const isPartOfConversation =
+                newMessage.sender.id === currentConv.otherUserId ||
+                newMessage.sender.id === user?.id;
+
+            if (isPartOfConversation) {
+                setMessages((prevMessages) => [...prevMessages, newMessage]);
+            }
         }
 
-        // On met aussi à jour le snippet dans la liste de gauche et on trie
         setConversations(prevConvs =>
             prevConvs.map(c =>
-                c.conversationId.toString() === activeConv?.conversationId.toString() // Comparaison sûre
+                c.conversationId === currentConv?.conversationId
                     ? { ...c, lastMessageContent: newMessage.content, lastMessageTimestamp: newMessage.timestamp }
                     : c
             ).sort((a, b) => new Date(b.lastMessageTimestamp).getTime() - new Date(a.lastMessageTimestamp).getTime())
         );
-
-    }, [activeConv]); // La fonction est recréée si la conversation active change
+    }, [user]);
 
     const { sendMessage, isConnected } = useChat(handleIncomingMessage);
 
-    // --- Logique de chargement initial et d'ouverture de conversation ---
     useEffect(() => {
         const openConversationId = (location.state as { openConversationId?: number })?.openConversationId;
 
@@ -50,22 +69,32 @@ export default function ChatPage() {
                 if (targetConv) {
                     openConversation(targetConv);
                 }
-                // Nettoie l'état de la navigation pour éviter la réouverture au rafraîchissement
                 window.history.replaceState({}, document.title);
             }
         }).catch(console.error);
     }, [location.state]);
 
-    // --- Logique d'auto-scroll ---
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
     const openConversation = async (conv: ConversationSnippet) => {
         setActiveConv(conv);
-        setMessages([]); // Vide les messages précédents pour un effet de chargement
-        const history = await fetchConversationMessages(conv.conversationId);
-        setMessages(history);
+        setMessages([]);
+        setShowChat(true); // ⚠️ Afficher le chat sur mobile
+
+        try {
+            const history = await fetchConversationMessages(conv.conversationId);
+            setMessages(Array.isArray(history) ? history : []);
+        } catch (error) {
+            console.error('Erreur chargement messages:', error);
+            setMessages([]);
+        }
+    };
+
+    const closeConversation = () => {
+        setShowChat(false); // ⚠️ Retour à la liste sur mobile
+        setActiveConv(null);
     };
 
     const onSend = () => {
@@ -73,93 +102,167 @@ export default function ChatPage() {
         if (!recipientId || !draft.trim() || !isConnected) return;
 
         sendMessage(recipientId, draft.trim());
-
-        const optimisticMessage: ChatMessage = {
-            id: Date.now(),
-            sender: { id: user!.id, firstName: user!.firstName, lastName: user!.lastName },
-            content: draft.trim(),
-            timestamp: new Date().toISOString(),
-        };
-        setMessages(prev => [...prev, optimisticMessage]);
         setDraft('');
     };
 
     if (!user) {
-        return <div className="h-screen flex items-center justify-center text-stone-600">Connexion requise</div>;
+        return (
+            <div className="h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-orange-100">
+                <div className="text-center">
+                    <FiMessageCircle className="w-16 h-16 mx-auto text-orange-600 mb-4" />
+                    <p className="text-lg text-stone-600">Connexion requise</p>
+                </div>
+            </div>
+        );
     }
 
     return (
-        <div className="h-screen bg-orange-50 flex flex-col">
-            <header className="bg-white shadow-sm z-10">
-                <div className="container mx-auto px-6 py-4">
+        <div className="h-full flex flex-col bg-gradient-to-br from-orange-50 to-orange-100">
+            {/* Header - FIXE EN HAUT */}
+            <header className="flex-shrink-0 bg-white shadow-sm border-b border-stone-200 z-10">
+                <div className="container mx-auto px-4 sm:px-6 py-4">
                     <h1 className="text-2xl font-bold text-stone-800">Messagerie</h1>
                 </div>
             </header>
 
-            <main className="flex-grow flex overflow-hidden">
-                {/* --- Colonne de gauche : Liste des conversations --- */}
-                <aside className="w-full md:w-1/3 lg:w-1/4 border-r border-stone-200 bg-white overflow-y-auto">
-                    <div className="p-4">
-                        <h2 className="text-lg font-semibold text-stone-700">Conversations</h2>
-                        <div className="mt-4 space-y-1">
-                            {conversations.map((conv) => (
-                                <button
-                                    key={conv.conversationId}
-                                    onClick={() => openConversation(conv)}
-                                    className={`w-full text-left p-3 rounded-lg transition-colors ${activeConv?.conversationId === conv.conversationId ? 'bg-orange-100' : 'hover:bg-stone-50'}`}
-                                >
-                                    <p className="font-bold text-stone-800">
-                                        {conv.otherUserFirstName} {conv.otherUserLastName}
-                                    </p>
-                                    <p className="text-sm text-stone-600 truncate">{conv.lastMessageContent}</p>
-                                </button>
-                            ))}
-                        </div>
+            {/* Main - RESTE DE L'ESPACE DISPONIBLE */}
+            <main className="flex-1 flex overflow-hidden">
+                {/* Sidebar */}
+                <aside className={`${
+                    showChat ? 'hidden md:flex' : 'flex'
+                } w-full md:w-80 lg:w-96 border-r border-stone-200 bg-white flex-col`}>
+                    <div className="p-4 border-b border-stone-100 flex-shrink-0">
+                        <h2 className="text-lg font-semibold text-stone-800">Conversations</h2>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto">
+                        {conversations.length === 0 ? (
+                            <div className="p-8 text-center text-stone-500">
+                                <FiMessageCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                                <p>Aucune conversation</p>
+                            </div>
+                        ) : (
+                            <div className="p-2 space-y-1">
+                                {conversations.map((conv) => (
+                                    <button
+                                        key={conv.conversationId}
+                                        onClick={() => openConversation(conv)}
+                                        className={`w-full text-left p-4 rounded-xl transition-all duration-200 ${
+                                            activeConv?.conversationId === conv.conversationId
+                                                ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-md'
+                                                : 'hover:bg-stone-50 text-stone-800'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg ${
+                                                activeConv?.conversationId === conv.conversationId
+                                                    ? 'bg-white/20 text-white'
+                                                    : 'bg-orange-100 text-orange-600'
+                                            }`}>
+                                                {conv.otherUserFirstName[0]}{conv.otherUserLastName[0]}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className={`font-semibold truncate ${
+                                                    activeConv?.conversationId === conv.conversationId ? 'text-white' : 'text-stone-800'
+                                                }`}>
+                                                    {conv.otherUserFirstName} {conv.otherUserLastName}
+                                                </p>
+                                                <p className={`text-sm truncate ${
+                                                    activeConv?.conversationId === conv.conversationId
+                                                        ? 'text-white/80'
+                                                        : 'text-stone-500'
+                                                }`}>
+                                                    {conv.lastMessageContent}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </aside>
 
-                {/* --- Colonne de droite : Conversation active --- */}
-                <section className="hidden md:flex w-2/3 lg:w-3/4 flex-col">
+                {/* Chat area */}
+                <section className={`${
+                    showChat ? 'flex' : 'hidden md:flex'
+                } flex-1 flex-col bg-white`}>
                     {activeConv ? (
                         <>
-                            {/* Header de la conversation active */}
-                            <div className="p-4 border-b border-stone-200 bg-white">
-                                <h3 className="text-xl font-semibold text-stone-800">
-                                    {activeConv.otherUserFirstName} {activeConv.otherUserLastName}
-                                </h3>
+                            {/* Chat header - FIXE */}
+                            <div className="flex-shrink-0 px-4 py-4 border-b border-stone-200 bg-white shadow-sm">
+                                <div className="flex items-center gap-3">
+                                    {/* Bouton retour MOBILE ONLY */}
+                                    <button
+                                        onClick={closeConversation}
+                                        className="md:hidden p-2 hover:bg-stone-100 rounded-full transition-colors"
+                                    >
+                                        <FiArrowLeft className="w-6 h-6 text-stone-600" />
+                                    </button>
+
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold shadow-md flex-shrink-0">
+                                        {activeConv.otherUserFirstName[0]}{activeConv.otherUserLastName[0]}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="text-lg font-semibold text-stone-800 truncate">
+                                            {activeConv.otherUserFirstName} {activeConv.otherUserLastName}
+                                        </h3>
+                                    </div>
+                                </div>
                             </div>
 
-                            {/* Zone des messages */}
-                            <div className="flex-grow p-6 overflow-y-auto space-y-4">
-                                {messages.map((m) => {
-                                    const isMine = m.sender.id === user.id;
-                                    return (
-                                        <div key={m.id} className={`flex items-end gap-2 ${isMine ? 'justify-end' : 'justify-start'}`}>
-                                            <div className={`${isMine ? 'bg-orange-600 text-white' : 'bg-stone-200 text-stone-800'} p-3 rounded-xl max-w-[70%] shadow-sm`}>
-                                                {m.content}
-                                            </div>
+                            {/* Messages - SCROLL UNIQUEMENT ICI */}
+                            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3 bg-gradient-to-b from-stone-50 to-white">
+                                {messages.length === 0 ? (
+                                    <div className="flex items-center justify-center h-full text-stone-400">
+                                        <div className="text-center">
+                                            <FiMessageCircle className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-3 opacity-30" />
+                                            <p className="text-sm md:text-base">Aucun message. Commencez la conversation !</p>
                                         </div>
-                                    );
-                                })}
-                                <div ref={messagesEndRef} /> {/* Élément vide pour le scroll */}
+                                    </div>
+                                ) : (
+                                    messages.map((m) => {
+                                        const isMine = m.sender.id === user.id;
+                                        return (
+                                            <div key={m.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                                                <div className={`max-w-[85%] md:max-w-[70%] lg:max-w-md ${
+                                                    isMine
+                                                        ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white'
+                                                        : 'bg-white text-stone-800 border border-stone-200'
+                                                } px-4 py-3 rounded-2xl shadow-sm`}>
+                                                    <p className="break-words text-sm md:text-base">{m.content}</p>
+                                                    <p className={`text-xs mt-1 ${
+                                                        isMine ? 'text-white/70' : 'text-stone-400'
+                                                    }`}>
+                                                        {new Date(m.timestamp).toLocaleTimeString('fr-FR', {
+                                                            hour: '2-digit',
+                                                            minute: '2-digit'
+                                                        })}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                                <div ref={messagesEndRef} />
                             </div>
 
-                            {/* Zone de saisie */}
-                            <div className="p-4 bg-white border-t border-stone-200">
-                                <div className="relative flex items-center gap-2">
+                            {/* Input - FIXE EN BAS */}
+                            <div className="flex-shrink-0 p-3 md:p-4 bg-white border-t border-stone-200">
+                                <div className="flex items-center gap-2 md:gap-3">
                                     <input
                                         type="text"
                                         value={draft}
                                         onChange={(e) => setDraft(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && onSend()}
-                                        placeholder={isConnected ? "Écrivez votre message..." : "Connexion au chat en cours..."}
+                                        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && onSend()}
+                                        placeholder={isConnected ? "Message..." : "Connexion..."}
                                         disabled={!isConnected}
-                                        className="w-full pl-4 pr-12 py-3 border border-stone-300 rounded-full focus:ring-2 focus:ring-orange-400 focus:border-transparent disabled:bg-stone-100 disabled:cursor-not-allowed"
+                                        className="flex-1 px-4 py-2.5 md:py-3 text-sm md:text-base border border-stone-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-stone-100 disabled:cursor-not-allowed transition-all"
                                     />
                                     <button
                                         onClick={onSend}
                                         disabled={!draft.trim() || !isConnected}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-orange-600 text-white rounded-full hover:bg-orange-700 transition-transform transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="flex-shrink-0 p-2.5 md:p-3 bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-full hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-200"
                                     >
                                         <FiSend className="w-5 h-5" />
                                     </button>
@@ -167,8 +270,14 @@ export default function ChatPage() {
                             </div>
                         </>
                     ) : (
-                        <div className="flex items-center justify-center h-full text-stone-500">
-                            Sélectionnez une conversation pour commencer à discuter.
+                        <div className="flex items-center justify-center h-full bg-gradient-to-br from-stone-50 to-stone-100">
+                            <div className="text-center px-4">
+                                <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center shadow-xl">
+                                    <FiMessageCircle className="w-8 h-8 md:w-10 md:h-10 text-white" />
+                                </div>
+                                <h3 className="text-lg md:text-xl font-semibold text-stone-700 mb-2">Aucune conversation</h3>
+                                <p className="text-sm md:text-base text-stone-500">Sélectionnez une conversation</p>
+                            </div>
                         </div>
                     )}
                 </section>
