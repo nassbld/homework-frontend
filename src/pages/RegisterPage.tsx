@@ -23,7 +23,8 @@ export default function RegisterPage() {
         try {
             const response = await apiClient.post('/auth/register', userData);
             console.log("Réponse de l'API :", response.data);
-            navigate('/login?registration=success');
+            // Show success message about email verification
+            navigate('/register-success', { state: { email } });
         } catch (apiError: unknown) {
             console.error("Erreur lors de l'inscription :", apiError);
             if (axios.isAxiosError(apiError) && apiError.response) {

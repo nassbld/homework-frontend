@@ -50,22 +50,18 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
 
     const pageNumbers = getPageNumbers();
 
-    // --- MISE À JOUR DU STYLE ---
-    const baseClasses = "relative inline-flex items-center px-4 py-2 text-sm font-semibold transition-colors";
-    const ringClasses = "ring-1 ring-inset ring-stone-300";
-
     return (
-        <nav className="mt-12 flex items-center justify-center" aria-label="Pagination">
+        <nav className="mt-12 flex items-center justify-center gap-2" aria-label="Pagination">
             <button
                 onClick={handlePrevious}
                 disabled={currentPage === 0}
-                className={`relative inline-flex items-center rounded-l-md px-2 py-2 text-stone-400 ${ringClasses} hover:bg-stone-100 focus:z-20 disabled:opacity-50`}
+                className="pill rounded-full bg-white/80 px-3 py-2 text-sm text-charcoal-500 shadow-card transition hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
                 <FiChevronLeft className="h-5 w-5" aria-hidden="true" />
             </button>
             {pageNumbers.map((page, index) =>
                 page === -1 ? (
-                    <span key={`ellipsis-${index}`} className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold text-stone-700 ${ringClasses}`}>
+                    <span key={`ellipsis-${index}`} className="px-3 py-2 text-sm font-semibold text-charcoal-500">
                         ...
                     </span>
                 ) : (
@@ -73,10 +69,10 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
                         key={page}
                         onClick={() => onPageChange(page)}
                         aria-current={currentPage === page ? 'page' : undefined}
-                        className={`${baseClasses} 
-                            ${currentPage === page
-                            ? 'z-10 bg-orange-600 text-white focus-visible:outline-orange-600'
-                            : `text-stone-900 ${ringClasses} hover:bg-orange-50`
+                        className={`pill px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200 ${
+                            currentPage === page
+                                ? 'bg-brand-500 text-white shadow-soft'
+                                : 'bg-white/80 text-charcoal-700 hover:bg-brand-50'
                         }`}
                     >
                         {page + 1}
@@ -86,11 +82,10 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
             <button
                 onClick={handleNext}
                 disabled={currentPage === totalPages - 1}
-                className={`relative inline-flex items-center rounded-r-md px-2 py-2 text-stone-400 ${ringClasses} hover:bg-stone-100 focus:z-20 disabled:opacity-50`}
+                className="pill rounded-full bg-white/80 px-3 py-2 text-sm text-charcoal-500 shadow-card transition hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
                 <FiChevronRight className="h-5 w-5" aria-hidden="true" />
             </button>
         </nav>
-        // --- FIN MISE À JOUR ---
     );
 }

@@ -8,10 +8,11 @@ interface CourseFormData {
     title: string;
     description: string;
     category: Category;
-    pricePerHour: number;
+    price: number;
+    courseDateTime: string;
     city: string;
-    durationInMinutes: number; // Ajouté pour la cohérence
-    maxStudents: number;      // Ajouté pour la cohérence
+    duration: number;
+    maxStudents: number;
 }
 
 interface EditCourseModalProps {
@@ -51,10 +52,11 @@ export default function EditCourseModal({ courseId, isOpen, onClose, onSuccess }
                     setValue('title', course.title);
                     setValue('description', course.description);
                     setValue('category', course.category);
-                    setValue('pricePerHour', course.pricePerHour);
+                    setValue('price', course.price);
+                    setValue('courseDateTime', course.courseDateTime ? course.courseDateTime.slice(0, 16) : '');
                     setValue('city', course.city);
-                    setValue('durationInMinutes', course.duration); // Ajouté
-                    setValue('maxStudents', course.maxStudents);        // Ajouté
+                    setValue('duration', course.duration);
+                    setValue('maxStudents', course.maxStudents ?? 1);
                     setIsLoading(false);
                 })
                 .catch(err => {
@@ -68,7 +70,13 @@ export default function EditCourseModal({ courseId, isOpen, onClose, onSuccess }
     const onSubmit = async (data: CourseFormData) => {
         try {
             setError(null);
-            const response = await apiClient.put(`/courses/${courseId}`, data);
+            const payload = {
+                ...data,
+                price: Number(data.price),
+                duration: Number(data.duration),
+                maxStudents: Number(data.maxStudents)
+            };
+            const response = await apiClient.put(`/courses/${courseId}`, payload);
             onSuccess(response.data);
             onClose();
         } catch (_err) {
@@ -131,19 +139,73 @@ export default function EditCourseModal({ courseId, isOpen, onClose, onSuccess }
                                     </select>
                                 </div>
                                 <div>
-                                    <label htmlFor="pricePerHour-edit" className="block text-sm font-medium text-stone-700 mb-1">Prix/heure ({'\u20AC'}) *</label>
+                                    <label htmlFor="price-edit" className="block text-sm font-medium text-stone-700 mb-1">Prix du cours ({'\u20AC'}) *</label>
                                     <input
-                                        id="pricePerHour-edit"
+                                        id="price-edit"
                                         type="number"
                                         step="0.01"
-                                        {...register('pricePerHour', { required: 'Le prix est obligatoire', valueAsNumber: true, min: 1 })}
-                                        className={`w-full px-3 py-2 border rounded-lg bg-white ${errors.pricePerHour ? 'border-rose-500' : 'border-stone-300'} focus:ring-orange-500 focus:border-orange-500`}
+                                        {...register('price', { required: 'Le prix est obligatoire', valueAsNumber: true, min: 1 })}
+                                        className={`w-full px-3 py-2 border rounded-lg bg-white ${errors.price ? 'border-rose-500' : 'border-stone-300'} focus:ring-orange-500 focus:border-orange-500`}
                                     />
+                                    <p className="mt-1 text-xs text-stone-500">
+                                        Une commission de 10% sera retenue par HomeWork sur chaque paiement.
+                                    </p>
                                 </div>
                             </div>
 
-                            {/* Les autres champs du formulaire avec le nouveau style */}
-                            {/* (Je vous laisse le soin de les ajouter si besoin, sur le modèle de ceux ci-dessus) */}
+                            <div>
+                                <label htmlFor="courseDateTime-edit" className="block text-sm font-medium text-stone-700 mb-1">Date et heure du cours *</label>
+                                <input
+                                    id="courseDateTime-edit"
+                                    type="datetime-local"
+                                    {...register('courseDateTime', { required: 'La date du cours est obligatoire' })}
+                                    className={`w-full px-3 py-2 border rounded-lg bg-white ${errors.courseDateTime ? 'border-rose-500' : 'border-stone-300'} focus:ring-orange-500 focus:border-orange-500`}
+                                />
+                                {errors.courseDateTime && <p className="mt-1 text-sm text-rose-600">{errors.courseDateTime.message}</p>}
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label htmlFor="duration-edit" className="block text-sm font-medium text-stone-700 mb-1">Durée (minutes) *</label>
+                                    <input
+                                        id="duration-edit"
+                                        type="number"
+                                        {...register('duration', { required: 'La durée est obligatoire', valueAsNumber: true, min: 1 })}
+                                        className={`w-full px-3 py-2 border rounded-lg bg-white ${errors.duration ? 'border-rose-500' : 'border-stone-300'} focus:ring-orange-500 focus:border-orange-500`}
+                                    />
+                                    {errors.duration && <p className="mt-1 text-sm text-rose-600">{errors.duration.message}</p>}
+                                </div>
+                                <div>
+                                    <label htmlFor="maxStudents-edit" className="block text-sm font-medium text-stone-700 mb-1">Élèves maximum *</label>
+                                    <input
+                                        id="maxStudents-edit"
+                                        type="number"
+                                        {...register('maxStudents', { required: 'La capacité est obligatoire', valueAsNumber: true, min: 1 })}
+                                        className={`w-full px-3 py-2 border rounded-lg bg-white ${errors.maxStudents ? 'border-rose-500' : 'border-stone-300'} focus:ring-orange-500 focus:border-orange-500`}
+                                    />
+                                    {errors.maxStudents && <p className="mt-1 text-sm text-rose-600">{errors.maxStudents.message}</p>}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label htmlFor="city-edit" className="block text-sm font-medium text-stone-700 mb-1">Ville *</label>
+                                <input
+                                    id="city-edit"
+                                    {...register('city', { required: 'La ville est obligatoire' })}
+                                    className={`w-full px-3 py-2 border rounded-lg bg-white ${errors.city ? 'border-rose-500' : 'border-stone-300'} focus:ring-orange-500 focus:border-orange-500`}
+                                />
+                                {errors.city && <p className="mt-1 text-sm text-rose-600">{errors.city.message}</p>}
+                            </div>
+
+                            <div>
+                                <label htmlFor="description-edit" className="block text-sm font-medium text-stone-700 mb-1">Description</label>
+                                <textarea
+                                    id="description-edit"
+                                    rows={4}
+                                    {...register('description')}
+                                    className="w-full px-3 py-2 border border-stone-300 rounded-lg resize-vertical bg-white focus:ring-orange-500 focus:border-orange-500"
+                                />
+                            </div>
 
                         </form>
 

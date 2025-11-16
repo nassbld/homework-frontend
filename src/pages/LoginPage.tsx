@@ -43,7 +43,9 @@ export default function LoginPage() {
         } catch (apiError: unknown) {
             console.error("Erreur lors de la connexion :", apiError);
             if (axios.isAxiosError(apiError) && apiError.response) {
-                setError(apiError.response.data.message || "Email ou mot de passe incorrect.");
+                const data = apiError.response.data as any;
+                const serverMessage = typeof data === 'string' ? data : (data?.message || data?.detail);
+                setError(serverMessage || "Email ou mot de passe incorrect.");
             } else {
                 setError("Une erreur inattendue est survenue.");
             }

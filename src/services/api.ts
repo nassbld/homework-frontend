@@ -28,13 +28,15 @@ apiClient.interceptors.response.use(
         return response;
     },
     (error) => {
-        // ⚠️ NE PAS rediriger si c'est une erreur sur /auth/login ou /auth/register
-        const isAuthEndpoint = error.config?.url?.includes('/auth/login') ||
-            error.config?.url?.includes('/auth/register');
+        const status = error.response?.status;
+        const requestUrl = error.config?.url ?? '';
+        const isAuthEndpoint = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/register');
 
-        if ((error.response?.status === 401 || error.response?.status === 403) && !isAuthEndpoint) {
+        // Only treat 401 (unauthorized) as an expired session. 403 can be a legit permission issue.
+        if (status === 401 && !isAuthEndpoint) {
             console.warn('🔒 Session expirée, redirection vers login...');
             localStorage.removeItem('token');
+            delete apiClient.defaults.headers.common['Authorization'];
             window.location.href = '/login?expired=true';
         }
 

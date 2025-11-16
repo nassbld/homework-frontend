@@ -35,13 +35,25 @@ export interface Course {
     title: string;
     description: string;
     category: Category;
-    pricePerHour: number;
+    price: number;
     city: string;
+    courseDateTime: string;
     duration: number;
-    maxStudents: number;
+    maxStudents: number | null;
     enrolledStudentsCount: number;
     createdAt: string;
     teacher: User;
+}
+
+export interface PaymentIntentData {
+    clientSecret: string;
+    paymentIntentId: string;
+    amount: number;
+    currency: string;
+    platformFee: number;
+    teacherAmount: number;
+    paymentId: number;
+    publishableKey: string;
 }
 
 export interface Enrollment {
@@ -79,4 +91,11 @@ export interface ConversationSnippet {
     otherUserId: number;
     lastMessageContent: string;
     lastMessageTimestamp: string;
+}
+
+export interface TeacherDashboardStats {
+    totalCourses: number;
+    activeStudents: number;
+    monthlyRevenue: number;
+    totalRevenue: number;
 }

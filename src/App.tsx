@@ -3,6 +3,8 @@ import {BrowserRouter, Routes, Route} from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import RegisterSuccessPage from './pages/RegisterSuccessPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
 import Layout from './components/Layout';
 import ProtectedRoute from "./components/auth/ProtectedRoute.tsx";
 import ProfilePage from "./pages/ProfilePage.tsx";
@@ -24,6 +26,8 @@ export default function App() {
                         <Route path="/" element={<HomePage />} />
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/register" element={<RegisterPage />} />
+                        <Route path="/register-success" element={<RegisterSuccessPage />} />
+                        <Route path="/verify-email" element={<VerifyEmailPage />} />
                         <Route path="/oauth/redirect" element={<OAuth2RedirectHandler />} />
                         <Route path="/courses" element={<CoursesPage />} />
                         <Route path="/courses/:courseId" element={<CourseDetailPage />} />

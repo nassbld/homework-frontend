@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../services/api';
-import { type Course } from '../types';
-import { FiPlus, FiEdit, FiTrash2, FiUsers, FiBook, FiDollarSign } from 'react-icons/fi';
+import { type Course, type TeacherDashboardStats } from '../types';
+import { FiPlus, FiEdit, FiTrash2, FiUsers, FiBook, FiDollarSign, FiTrendingUp } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import CreateCourseModal from "../components/CreateCourseModal.tsx";
 import EditCourseModal from "../components/EditCourseModal.tsx";
 
 export default function TeacherDashboardPage() {
     const [courses, setCourses] = useState<Course[]>([]);
-    const [stats, _setStats] = useState({ totalStudents: 0, monthlyRevenue: 0 });
+    const [stats, setStats] = useState<TeacherDashboardStats | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -19,8 +19,13 @@ export default function TeacherDashboardPage() {
         const fetchDashboardData = async () => {
             setIsLoading(true);
             try {
-                const coursesResponse = await apiClient.get('/courses/courses');
-                setCourses(coursesResponse.data.content || coursesResponse.data);
+                const [coursesResponse, statsResponse] = await Promise.all([
+                    apiClient.get('/courses/courses'),
+                    apiClient.get<TeacherDashboardStats>('/teachers/dashboard/stats')
+                ]);
+                const coursesData = coursesResponse.data.content || coursesResponse.data;
+                setCourses(coursesData);
+                setStats(statsResponse.data);
             } catch (err) {
                 setError("Impossible de charger les données du dashboard.");
                 console.error(err);
@@ -34,6 +39,7 @@ export default function TeacherDashboardPage() {
 
     const handleCourseCreated = (newCourse: Course) => {
         setCourses(prevCourses => [newCourse, ...prevCourses]);
+        setStats(prev => prev ? { ...prev, totalCourses: prev.totalCourses + 1 } : prev);
     };
 
     const handleEditClick = (courseId: number) => {
@@ -54,12 +60,21 @@ export default function TeacherDashboardPage() {
             try {
                 await apiClient.delete(`/courses/${courseId}`);
                 setCourses(prevCourses => prevCourses.filter(course => course.id !== courseId));
+                setStats(prev => prev ? { ...prev, totalCourses: Math.max(prev.totalCourses - 1, 0) } : prev);
             } catch (err) {
                 alert("Erreur lors de la suppression du cours.");
                 console.error(err);
             }
         }
     };
+
+    const formatCurrency = (value: number | null | undefined) =>
+        new Intl.NumberFormat('fr-FR', {
+            style: 'currency',
+            currency: 'EUR',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(value ?? 0);
 
 
     if (isLoading) {
@@ -89,10 +104,11 @@ export default function TeacherDashboardPage() {
                     </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 md:mb-12">
-                    <StatCard icon={FiBook} title="Total des Cours" value={courses.length} color="orange" />
-                    <StatCard icon={FiUsers} title="Total des Élèves" value={stats.totalStudents || '123'} color="green" />
-                    <StatCard icon={FiDollarSign} title="Revenus (ce mois)" value={`${stats.monthlyRevenue || 456}${'\u20AC'}`} color="amber" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8 md:mb-12">
+                    <StatCard icon={FiBook} title="Total des Cours" value={stats?.totalCourses ?? courses.length} color="orange" />
+                    <StatCard icon={FiUsers} title="Élèves actifs" value={stats?.activeStudents ?? 0} color="green" />
+                    <StatCard icon={FiDollarSign} title="Revenus (ce mois)" value={formatCurrency(stats?.monthlyRevenue)} color="amber" />
+                    <StatCard icon={FiTrendingUp} title="Revenus cumulés" value={formatCurrency(stats?.totalRevenue)} color="blue" />
                 </div>
 
                 <div className="bg-white rounded-xl shadow-lg">
@@ -117,7 +133,7 @@ export default function TeacherDashboardPage() {
                                         <div className="text-sm text-stone-500 lg:hidden">{course.category}</div>
                                     </td>
                                     <td className="hidden lg:table-cell px-6 py-4 whitespace-nowrap text-sm text-stone-500">{course.category}</td>
-                                    <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm text-stone-500">{course.pricePerHour}{'\u20AC'} / heure</td>
+                                    <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm text-stone-500">{course.price.toFixed(2)}{'\u20AC'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <button onClick={() => handleEditClick(course.id)} className="text-orange-600 hover:text-orange-900 mr-4"><FiEdit className="h-5 w-5"/></button>
                                         <button onClick={() => handleDelete(course.id)} className="text-rose-600 hover:text-rose-900"><FiTrash2 className="h-5 w-5"/></button>
@@ -157,7 +173,7 @@ interface StatCardProps {
     icon: React.ElementType;
     title: string;
     value: string | number;
-    color: 'orange' | 'green' | 'amber';
+    color: 'orange' | 'green' | 'amber' | 'blue';
 }
 
 function StatCard({ icon: Icon, title, value, color }: StatCardProps) {
@@ -165,6 +181,7 @@ function StatCard({ icon: Icon, title, value, color }: StatCardProps) {
         orange: 'text-orange-600 bg-orange-100',
         green: 'text-green-600 bg-green-100',
         amber: 'text-amber-600 bg-amber-100',
+        blue: 'text-sky-600 bg-sky-100',
     };
 
     return (

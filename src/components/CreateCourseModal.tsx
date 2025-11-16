@@ -8,7 +8,8 @@ interface CourseFormData {
     title: string;
     description: string;
     category: Category;
-    pricePerHour: number;
+    price: number;
+    courseDateTime: string;
     city: string;
     duration: number;
     maxStudents: number;
@@ -42,7 +43,8 @@ export default function CreateCourseModal({ isOpen, onClose, onSuccess }: Create
             title: '',
             description: '',
             category: 'AUTRE',
-            pricePerHour: 25,
+            price: 25,
+            courseDateTime: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString().slice(0, 16),
             city: ''
         }
     });
@@ -50,7 +52,13 @@ export default function CreateCourseModal({ isOpen, onClose, onSuccess }: Create
     const onSubmit = async (data: CourseFormData) => {
         try {
             setError(null);
-            const response = await apiClient.post('/courses', data);
+            const payload = {
+                ...data,
+                price: Number(data.price),
+                duration: Number(data.duration),
+                maxStudents: Number(data.maxStudents)
+            };
+            const response = await apiClient.post('/courses', payload);
             reset();
             onSuccess(response.data);
             onClose();
@@ -115,17 +123,32 @@ export default function CreateCourseModal({ isOpen, onClose, onSuccess }: Create
                         </div>
 
                         <div>
-                            <label htmlFor="pricePerHour" className="block text-sm font-medium text-stone-700 mb-1">Prix/heure ({'\u20AC'}) *</label>
+                            <label htmlFor="price" className="block text-sm font-medium text-stone-700 mb-1">Prix du cours ({'\u20AC'}) *</label>
                             <input
-                                id="pricePerHour"
+                                id="price"
                                 type="number"
                                 step="0.01"
-                                {...register('pricePerHour', { required: 'Le prix est obligatoire', valueAsNumber: true, min: { value: 1, message: 'Le prix doit être positif' }})}
-                                className={`w-full px-3 py-2 border rounded-lg bg-white ${errors.pricePerHour ? 'border-rose-500' : 'border-stone-300'} focus:ring-orange-500 focus:border-orange-500`}
+                                {...register('price', { required: 'Le prix est obligatoire', valueAsNumber: true, min: { value: 1, message: 'Le prix doit être positif' }})}
+                                className={`w-full px-3 py-2 border rounded-lg bg-white ${errors.price ? 'border-rose-500' : 'border-stone-300'} focus:ring-orange-500 focus:border-orange-500`}
                                 disabled={isSubmitting}
                             />
-                            {errors.pricePerHour && <p className="mt-1 text-sm text-rose-600">{errors.pricePerHour.message}</p>}
+                            <p className="mt-1 text-xs text-stone-500">
+                                Une commission de 10% sera retenue par HomeWork sur chaque paiement.
+                            </p>
+                            {errors.price && <p className="mt-1 text-sm text-rose-600">{errors.price.message}</p>}
                         </div>
+                    </div>
+
+                    <div>
+                        <label htmlFor="courseDateTime" className="block text-sm font-medium text-stone-700 mb-1">Date et heure du cours *</label>
+                        <input
+                            id="courseDateTime"
+                            type="datetime-local"
+                            {...register('courseDateTime', { required: 'La date du cours est obligatoire' })}
+                            className={`w-full px-3 py-2 border rounded-lg bg-white ${errors.courseDateTime ? 'border-rose-500' : 'border-stone-300'} focus:ring-orange-500 focus:border-orange-500`}
+                            disabled={isSubmitting}
+                        />
+                        {errors.courseDateTime && <p className="mt-1 text-sm text-rose-600">{errors.courseDateTime.message}</p>}
                     </div>
 
                     <div>
