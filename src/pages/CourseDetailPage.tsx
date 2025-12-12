@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import apiClient from '../services/api';
 import {
     FiMapPin,
-    FiUser,
     FiCalendar,
     FiUsers,
     FiClock,

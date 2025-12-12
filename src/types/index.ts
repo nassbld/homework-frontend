@@ -90,7 +90,8 @@ export interface ConversationSnippet {
     otherUserLastName: string;
     otherUserId: number;
     lastMessageContent: string;
-    lastMessageTimestamp: string;
+    lastMessageTimestamp: string ;
+    lastMessageSenderId?: number;
 }
 
 export interface TeacherDashboardStats {

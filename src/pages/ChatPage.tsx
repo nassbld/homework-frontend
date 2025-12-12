@@ -5,9 +5,11 @@ import { useChat } from '../hooks/useChat';
 import { fetchConversations, fetchConversationMessages } from '../services/chatApi';
 import type { ConversationSnippet, ChatMessage, ChatMessageResponse } from '../types';
 import { FiSend, FiMessageCircle, FiArrowLeft } from 'react-icons/fi';
+import { useChatNotifications } from '../context/ChatNotificationContext';
 
 export default function ChatPage() {
     const { user } = useAuth();
+    const { refreshUnread, markConversationRead, isConversationUnread } = useChatNotifications();
     const location = useLocation();
 
     const [conversations, setConversations] = useState<ConversationSnippet[]>([]);
@@ -44,6 +46,9 @@ export default function ChatPage() {
 
             if (isPartOfConversation) {
                 setMessages((prevMessages) => [...prevMessages, newMessage]);
+                if (newMessage.sender.id !== user?.id) {
+                    markConversationRead(currentConv.conversationId, newMessage.timestamp);
+                }
             }
         }
 
@@ -54,7 +59,8 @@ export default function ChatPage() {
                     : c
             ).sort((a, b) => new Date(b.lastMessageTimestamp).getTime() - new Date(a.lastMessageTimestamp).getTime())
         );
-    }, [user]);
+        refreshUnread();
+    }, [user, refreshUnread, markConversationRead]);
 
     const { sendMessage, isConnected } = useChat(handleIncomingMessage);
 
@@ -63,6 +69,7 @@ export default function ChatPage() {
 
         fetchConversations().then(loadedConversations => {
             setConversations(loadedConversations);
+            refreshUnread();
 
             if (openConversationId) {
                 const targetConv = loadedConversations.find(c => c.conversationId === openConversationId);
@@ -72,7 +79,7 @@ export default function ChatPage() {
                 window.history.replaceState({}, document.title);
             }
         }).catch(console.error);
-    }, [location.state]);
+    }, [location.state, refreshUnread]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -86,6 +93,7 @@ export default function ChatPage() {
         try {
             const history = await fetchConversationMessages(conv.conversationId);
             setMessages(Array.isArray(history) ? history : []);
+            markConversationRead(conv.conversationId, conv.lastMessageTimestamp);
         } catch (error) {
             console.error('Erreur chargement messages:', error);
             setMessages([]);
@@ -102,6 +110,9 @@ export default function ChatPage() {
         if (!recipientId || !draft.trim() || !isConnected) return;
 
         sendMessage(recipientId, draft.trim());
+        if (activeConv) {
+            markConversationRead(activeConv.conversationId);
+        }
         setDraft('');
     };
 
@@ -143,19 +154,23 @@ export default function ChatPage() {
                             </div>
                         ) : (
                             <div className="p-2 space-y-1">
-                                {conversations.map((conv) => (
+                                {conversations.map((conv) => {
+                                    const isActive = activeConv?.conversationId === conv.conversationId;
+                                    const hasUnread = isConversationUnread(conv.conversationId) && !isActive;
+
+                                    return (
                                     <button
                                         key={conv.conversationId}
                                         onClick={() => openConversation(conv)}
                                         className={`w-full text-left p-4 rounded-xl transition-all duration-200 ${
-                                            activeConv?.conversationId === conv.conversationId
+                                            isActive
                                                 ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-md'
                                                 : 'hover:bg-stone-50 text-stone-800'
                                         }`}
                                     >
                                         <div className="flex items-center gap-3">
                                             <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg ${
-                                                activeConv?.conversationId === conv.conversationId
+                                                isActive
                                                     ? 'bg-white/20 text-white'
                                                     : 'bg-orange-100 text-orange-600'
                                             }`}>
@@ -163,21 +178,25 @@ export default function ChatPage() {
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className={`font-semibold truncate ${
-                                                    activeConv?.conversationId === conv.conversationId ? 'text-white' : 'text-stone-800'
+                                                    isActive ? 'text-white' : 'text-stone-800'
                                                 }`}>
                                                     {conv.otherUserFirstName} {conv.otherUserLastName}
                                                 </p>
                                                 <p className={`text-sm truncate ${
-                                                    activeConv?.conversationId === conv.conversationId
+                                                    isActive
                                                         ? 'text-white/80'
                                                         : 'text-stone-500'
                                                 }`}>
                                                     {conv.lastMessageContent}
                                                 </p>
                                             </div>
+                                            {hasUnread && (
+                                                <span className="h-2.5 w-2.5 rounded-full bg-brand-500 inline-flex" />
+                                            )}
                                         </div>
                                     </button>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>

@@ -1,18 +1,19 @@
-import {useEffect, useRef, useState} from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Client, type IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useAuth } from './useAuth';
 import type { ChatMessageResponse } from '../types';
+import { useChatNotifications } from '../context/ChatNotificationContext';
 
 type OnMessage = (msg: ChatMessageResponse) => void;
 
 export function useChat(onMessage: OnMessage) {
     const { user } = useAuth();
+    const { refreshUnread } = useChatNotifications();
     const clientRef = useRef<Client | null>(null);
     const [isConnected, setIsConnected] = useState(false);
 
     useEffect(() => {
-        // ✅ Ne pas se connecter si pas d'utilisateur
         if (!user) {
             console.log('WebSocket: User not authenticated, skipping connection');
             return;
@@ -40,6 +41,7 @@ export function useChat(onMessage: OnMessage) {
                         if (!frame.body) return;
                         const parsed = JSON.parse(frame.body) as ChatMessageResponse;
                         onMessage(parsed);
+                        refreshUnread();
                     });
                 }
             },
@@ -48,10 +50,7 @@ export function useChat(onMessage: OnMessage) {
                 setIsConnected(false);
             },
             onStompError: (frame) => {
-                // ⚠️ NOUVEAU : Gérer les erreurs STOMP (JWT expiré, etc.)
                 console.error('❌ Erreur STOMP:', frame.headers['message']);
-
-                // Si JWT expiré, déconnecter proprement
                 if (frame.headers['message']?.includes('JWT') || frame.headers['message']?.includes('expired')) {
                     console.warn('JWT expiré dans WebSocket, déconnexion...');
                     client.deactivate();

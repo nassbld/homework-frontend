@@ -1,7 +1,8 @@
-import {Link, NavLink, useNavigate} from 'react-router-dom';
-import {useMemo, useState} from 'react';
-import {useAuth} from "../hooks/useAuth.ts";
-import {FiMenu, FiX, FiMessageCircle} from 'react-icons/fi';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { useAuth } from "../hooks/useAuth.ts";
+import { FiMenu, FiX, FiMessageCircle, FiHome, FiBookOpen, FiBriefcase, FiUser } from 'react-icons/fi';
+import { useChatNotifications } from '../context/ChatNotificationContext';
 
 const primaryButtonClasses = "btn-primary px-5 py-2 text-sm sm:text-base";
 const secondaryButtonClasses = "btn-secondary px-5 py-2 text-sm sm:text-base";
@@ -14,7 +15,8 @@ const navLinkClasses = ({isActive}: { isActive: boolean }) =>
     }`;
 
 export default function Navbar() {
-    const {user, logout} = useAuth();
+    const { user, logout } = useAuth();
+    const { unreadCount } = useChatNotifications();
     const navigate = useNavigate();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -32,16 +34,17 @@ export default function Navbar() {
     const closeMenu = () => setIsMenuOpen(false);
 
     const dashboardLink = user?.role === 'TEACHER'
-        ? {to: '/teacher-dashboard', label: 'Tableau de bord'}
+        ? {to: '/teacher-dashboard', label: 'Tableau de bord', icon: <FiBriefcase className="h-4 w-4"/>}
         : user?.role === 'STUDENT'
-            ? {to: '/student-dashboard', label: 'Mes cours'}
+            ? {to: '/student-dashboard', label: 'Mes cours', icon: <FiBriefcase className="h-4 w-4"/>}
             : null;
 
     const navigationLinks = [
-        {to: '/', label: 'Accueil'},
-        {to: '/courses', label: 'Parcourir les cours'},
-        ...(user ? [{to: '/chat', label: 'Messagerie', icon: <FiMessageCircle className="h-4 w-4"/>}] : []),
+        { to: '/', label: 'Accueil', icon: <FiHome className="h-4 w-4" /> },
+        { to: '/courses', label: 'Parcourir les ateliers', icon: <FiBookOpen className="h-4 w-4" /> },
+        ...(user ? [{ to: '/chat', label: 'Messagerie', icon: <FiMessageCircle className="h-4 w-4" /> }] : []),
         ...(dashboardLink ? [dashboardLink] : []),
+        ...(user ? [{ to: '/profile', label: 'Mon Profil', icon: <FiUser className="h-4 w-4" /> }] : [])
     ];
 
     return (
@@ -49,7 +52,7 @@ export default function Navbar() {
             className="sticky top-0 z-50 border-b border-white/60 bg-white/80 backdrop-blur-xl shadow-[0_10px_30px_-28px_rgba(20,10,0,0.65)]">
             <nav className="container mx-auto flex items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
                 <Link to="/" className="flex items-center gap-3" onClick={closeMenu}>
-                    <img src="/images/logo.png" alt="Logo HomeWork" className="h-10 w-auto"/>
+                    <img src="/public/images/logo.png" alt="Logo HomeWork" className="h-10 w-auto"/>
                     <div className="flex flex-col">
                         <span className="font-display text-2xl leading-snug text-charcoal-900">HomeWork</span>
                         <span className="text-xs font-medium uppercase tracking-[0.2em] text-brand-500">
@@ -64,7 +67,12 @@ export default function Navbar() {
                             <NavLink key={link.to} to={link.to} className={navLinkClasses}>
                                 <span className="flex items-center gap-2">
                                     {link.icon}
-                                    {link.label}
+                                    <span>{link.label}</span>
+                                    {link.label === 'Messagerie' && unreadCount > 0 && (
+                                        <span className="ml-2 inline-flex h-5 min-w-[1.5rem] items-center justify-center rounded-full bg-brand-500 px-1 text-xs font-semibold text-white">
+                                            {unreadCount}
+                                        </span>
+                                    )}
                                 </span>
                             </NavLink>
                         ))}
@@ -73,14 +81,10 @@ export default function Navbar() {
                     <div className="flex items-center gap-4">
                         {user ? (
                             <>
-                                <NavLink to="/profile" className={navLinkClasses}>
-                                    Mon profil
-                                </NavLink>
                                 <button onClick={handleLogout} className={secondaryButtonClasses}>
                                     Déconnexion
                                 </button>
-                                <div
-                                    className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 font-semibold text-brand-600">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 font-semibold text-brand-600">
                                     {userInitials}
                                 </div>
                             </>
@@ -95,7 +99,7 @@ export default function Navbar() {
 
                 <button
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
-                    className="flex h-11 w-11 items-center justify-center rounded-full bg-white/80 text-2xl text-charcoal-800 shadow-card transition hover:bg-white md:hidden"
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-white/80 text-2xl text-charcoal-800 shadow-card transition hover:bg-white lg:hidden"
                     aria-label="Basculer le menu"
                     aria-expanded={isMenuOpen}
                 >
@@ -105,7 +109,7 @@ export default function Navbar() {
 
             {/* Menu mobile */}
             <div
-                className={`fixed inset-x-0 top-[72px] origin-top transform bg-white/95 shadow-card transition-all duration-300 ease-soft-in-out md:hidden ${
+                className={`fixed inset-x-0 top-[72px] origin-top transform bg-white/95 shadow-card transition-all duration-300 ease-soft-in-out lg:hidden ${
                     isMenuOpen ? 'scale-y-100 opacity-100' : 'scale-y-0 opacity-0'
                 }`}
             >
@@ -115,40 +119,32 @@ export default function Navbar() {
                             key={link.to}
                             to={link.to}
                             onClick={closeMenu}
-                            className={({isActive}) =>
+                            className={({ isActive }) =>
                                 `flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold transition ${
                                     isActive ? 'bg-brand-50 text-brand-600' : 'text-charcoal-700 hover:bg-brand-50 hover:text-brand-500'
                                 }`
                             }
                         >
                             <span className="flex items-center gap-2">
-                                //{link.icon}
-                                {link.label}
+                                {link.icon}
+                                <span>{link.label}</span>
                             </span>
+                            {link.label === 'Messagerie' && unreadCount > 0 && (
+                                <span className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-brand-500 px-1 text-xs font-semibold text-white">
+                                    {unreadCount}
+                                </span>
+                            )}
                         </NavLink>
                     ))}
 
                     <div className="mt-4 flex flex-col gap-3">
                         {user ? (
-                            <>
-                                <NavLink
-                                    to="/profile"
-                                    onClick={closeMenu}
-                                    className={({isActive}) =>
-                                        `rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                                            isActive ? 'bg-brand-50 text-brand-600' : 'text-charcoal-700 hover:bg-brand-50 hover:text-brand-500'
-                                        }`
-                                    }
-                                >
-                                    Mon profil
-                                </NavLink>
-                                <button
-                                    onClick={handleLogout}
-                                    className={`${secondaryButtonClasses} w-full`}
-                                >
-                                    Déconnexion
-                                </button>
-                            </>
+                            <button
+                                onClick={handleLogout}
+                                className={`${secondaryButtonClasses} w-full`}
+                            >
+                                Déconnexion
+                            </button>
                         ) : (
                             <>
                                 <Link

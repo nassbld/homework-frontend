@@ -7,7 +7,7 @@
 
 @theme {
   --font-sans: "Inter", system-ui, sans-serif;
-  --font-display: "Manrope", "Inter", sans-serif;
+  --font-display: "Fraunces", "Manrope", serif;
 
   --color-brand-50: #fff4f1;
   --color-brand-100: #ffe0d8;
