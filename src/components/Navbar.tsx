@@ -52,7 +52,7 @@ export default function Navbar() {
             className="sticky top-0 z-50 border-b border-white/60 bg-white/80 backdrop-blur-xl shadow-[0_10px_30px_-28px_rgba(20,10,0,0.65)]">
             <nav className="container mx-auto flex items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
                 <Link to="/" className="flex items-center gap-3" onClick={closeMenu}>
-                    <img src="/public/images/logo.png" alt="Logo HomeWork" className="h-10 w-auto"/>
+                    <img src="/images/logo.png" alt="Logo HomeWork" className="h-10 w-auto"/>
                     <div className="flex flex-col">
                         <span className="font-display text-2xl leading-snug text-charcoal-900">HomeWork</span>
                         <span className="text-xs font-medium uppercase tracking-[0.2em] text-brand-500">
