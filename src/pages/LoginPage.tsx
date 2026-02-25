@@ -22,6 +22,7 @@ export default function LoginPage() {
     const registrationSuccess = new URLSearchParams(location.search).get('registration') === 'success';
 
     const GOOGLE_AUTH_URL = `${import.meta.env.VITE_API_URL}/oauth2/authorization/google` || 'http://localhost:8080/oauth2/authorization/google';
+    console.log(GOOGLE_AUTH_URL);
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
